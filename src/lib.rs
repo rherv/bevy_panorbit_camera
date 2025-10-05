@@ -11,7 +11,7 @@ use bevy::transform::TransformSystems;
 use bevy::window::{PrimaryWindow, WindowRef};
 #[cfg(feature = "bevy_egui")]
 use bevy_egui::EguiPreUpdateSet;
-
+use big_space::prelude::{CellCoord, Grids};
 #[cfg(feature = "bevy_egui")]
 pub use crate::egui::{EguiFocusIncludesHover, EguiWantsFocus};
 use crate::input::{mouse_key_tracker, MouseKeyTracker};
@@ -483,10 +483,14 @@ fn pan_orbit_camera(
     active_cam: Res<ActiveCameraData>,
     mouse_key_tracker: Res<MouseKeyTracker>,
     touch_tracker: Res<TouchTracker>,
-    mut orbit_cameras: Query<(Entity, &mut PanOrbitCamera, &mut Transform, &mut Projection)>,
+    mut orbit_cameras: Query<(Entity, &mut PanOrbitCamera, &mut CellCoord, &mut Transform, &mut Projection)>,
+    q_grids: Grids,
     time: Res<Time>,
 ) {
-    for (entity, mut pan_orbit, mut transform, mut projection) in orbit_cameras.iter_mut() {
+    for (entity, mut pan_orbit, mut cell_coord, mut transform, mut projection) in orbit_cameras.iter_mut() {
+        let Some(grid) = q_grids.parent_grid(entity) else {
+            continue
+        };
         // Closures that apply limits to the yaw, pitch, and zoom values
         let apply_zoom_limits = {
             let zoom_upper_limit = pan_orbit.zoom_upper_limit;
@@ -557,6 +561,8 @@ fn pan_orbit_camera(
                 radius,
                 focus,
                 &mut transform,
+                &mut cell_coord,
+                grid,
                 &mut projection,
                 pan_orbit.axis,
             );
@@ -750,6 +756,8 @@ fn pan_orbit_camera(
                     new_radius,
                     new_focus,
                     &mut transform,
+                    &mut cell_coord,
+                    grid,
                     &mut projection,
                     pan_orbit.axis,
                 );

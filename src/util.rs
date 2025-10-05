@@ -1,4 +1,6 @@
+use bevy::math::DVec3;
 use bevy::prelude::*;
+use big_space::prelude::{CellCoord, Grid};
 
 const EPSILON: f32 = 0.001;
 
@@ -26,10 +28,11 @@ pub fn update_orbit_transform(
     mut radius: f32,
     focus: Vec3,
     transform: &mut Transform,
+    cell_coord: &mut CellCoord,
+    grid: &Grid,
     projection: &mut Projection,
     axis: [Vec3; 3],
 ) {
-    let mut new_transform = Transform::IDENTITY;
     if let Projection::Orthographic(ref mut p) = *projection {
         p.scale = radius;
         // (near + far) / 2.0 ensures that objects near `focus` are not clipped
@@ -37,9 +40,19 @@ pub fn update_orbit_transform(
     }
     let yaw_rot = Quat::from_axis_angle(axis[1], yaw);
     let pitch_rot = Quat::from_axis_angle(axis[0], -pitch);
-    new_transform.rotation *= yaw_rot * pitch_rot;
-    new_transform.translation += focus + new_transform.rotation * Vec3::new(0.0, 0.0, radius);
-    *transform = new_transform;
+
+    let mut new_dvec3 = DVec3::default();
+    let mut new_quat = Quat::IDENTITY;
+
+    new_quat *= yaw_rot * pitch_rot;
+    new_dvec3 += focus.as_dvec3() + new_quat.as_dquat() * DVec3::new(0.0, 0.0, radius as f64);
+
+    let (new_cell_coord, new_translation) = grid.translation_to_grid(new_dvec3);
+    *cell_coord = new_cell_coord;
+
+    transform.translation = new_translation;
+    transform.rotation = new_quat
+
 }
 
 pub fn approx_equal(a: f32, b: f32) -> bool {
